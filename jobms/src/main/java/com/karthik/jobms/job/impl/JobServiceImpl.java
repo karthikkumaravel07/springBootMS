@@ -8,6 +8,9 @@ import com.karthik.jobms.job.dto.JobDTO;
 import com.karthik.jobms.job.external.Company;
 import com.karthik.jobms.job.external.Review;
 import com.karthik.jobms.job.mapper.JobMapper;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -29,18 +32,29 @@ public class JobServiceImpl implements JobService {
     private CompanyClient companyClient;
     private ReviewClient reviewClient;
     JobRepository jobRepository;
-
     public JobServiceImpl(JobRepository jobRepository, CompanyClient companyClient, ReviewClient reviewClient){
         this.jobRepository = jobRepository;
         this.companyClient = companyClient;
         this.reviewClient = reviewClient;
     }
 
+    private int attempt = 0;
+
     @Override
+//    @CircuitBreaker(name = "companyBreaker", fallbackMethod = "companyBreakerFallback")
+//    @Retry(name = "companyBreaker", fallbackMethod = "companyBreakerFallback")
+    @RateLimiter(name = "companyBreaker", fallbackMethod = "companyBreakerFallback")
     public List<JobDTO> findAll() {
+        System.out.println("attempt===="+ ++attempt);
         List<Job> jobs = jobRepository.findAll();
         List<JobDTO> jobDTOS = new ArrayList<>();
         return jobs.stream().map(this::convertToDto).collect(Collectors.toList());
+    }
+
+    public List<String> companyBreakerFallback(Exception e){
+        List<String> list = new ArrayList<>();
+        list.add("DEFAULT");
+        return list;
     }
 
     private JobDTO convertToDto(Job job){
@@ -66,7 +80,6 @@ public class JobServiceImpl implements JobService {
     public JobDTO getJobById(Long id) {
         Job job = jobRepository.findById(id).orElse(null);
         return convertToDto(job);
-
     }
 
     @Override
