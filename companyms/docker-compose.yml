@@ -1,3 +1,4 @@
+version: '3.7'
 services:
   postgres:
     image: postgres
@@ -45,7 +46,98 @@ services:
       - "15672:15672"
     networks:
       - postgres
+
+  config-server-ms:
+    image: karthikk1912/configserver:latest
+    container_name: configserver
+    ports:
+      - 8080:8080
+    depends_on:
+      - service-registry
+    networks:
+      - microservice-network
+      - postgres
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+
+
+  service-registry:
+    image: karthikk1912/service-registry:latest
+    container_name: service-registry
+    ports:
+      - "8761:8761"
+    depends_on:
+      - rabbitmq
+      - zipkin
+      - postgres
+      - pgadmin
+    networks:
+      - microservice-network
+      - postgres
+
+  companyms:
+    image: karthikk1912/companyms:latest
+    container_name: companyms
+    ports:
+      - 8081:8081
+    depends_on:
+      - service-registry
+      - config-server-ms
+    networks:
+      - microservice-network
+      - postgres
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+
+  jobms:
+    image: karthikk1912/jobms:latest
+    container_name: jobms
+    ports:
+      - 8082:8082
+    depends_on:
+      - service-registry
+      - config-server-ms
+    networks:
+      - microservice-network
+      - postgres
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+
+
+  reviewms:
+    image: karthikk1912/reviewms:latest
+    container_name: reviewms
+    ports:
+      - 8083:8083
+    depends_on:
+      - service-registry
+      - config-server-ms
+    networks:
+      - microservice-network
+      - postgres
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+
+  gateway:
+    image: karthikk1912/gateway:latest
+    container_name: gateway
+    ports:
+      - 8084:8084
+    depends_on:
+      - service-registry
+    networks:
+      - microservice-network
+      - postgres
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
 networks:
+  microservice-network:
+    driver: bridge
   postgres:
     driver: bridge
 
